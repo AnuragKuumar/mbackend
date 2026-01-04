@@ -91,8 +91,11 @@ const corsOptions = {
       'http://localhost:3001',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:3001',
+      'https://mfrontend-five.vercel.app',
       'https://mobirepair.com',
-      'https://www.mobirepair.com'
+      'https://www.mobirepair.com',
+      'https://mobilerpairdurgapur.in',
+      'https://www.mobilerpairdurgapur.in'
     ];
     
     // For development, allow all origins
