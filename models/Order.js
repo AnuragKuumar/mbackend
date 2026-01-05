@@ -1,111 +1,137 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const orderSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+const Order = sequelize.define('Order', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
   },
   orderNumber: {
-    type: String,
+    type: DataTypes.STRING,
     unique: true,
-    required: true
+    allowNull: false
   },
-  items: [{
-    product: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product',
-      required: true
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1
-    },
-    price: {
-      type: Number,
-      required: true
-    },
-    total: {
-      type: Number,
-      required: true
+  items: {
+    type: DataTypes.JSONB,
+    allowNull: false,
+    validate: {
+      isArray(value) {
+        if (!Array.isArray(value)) {
+          throw new Error('Items must be an array');
+        }
+        if (value.length === 0) {
+          throw new Error('Order must have at least one item');
+        }
+      }
     }
-  }],
+  },
   shippingAddress: {
-    name: {
-      type: String,
-      required: true
-    },
-    phone: {
-      type: String,
-      required: true
-    },
-    email: String,
-    street: {
-      type: String,
-      required: true
-    },
-    city: {
-      type: String,
-      required: true
-    },
-    state: {
-      type: String,
-      required: true
-    },
-    pincode: {
-      type: String,
-      required: true
+    type: DataTypes.JSONB,
+    allowNull: false,
+    validate: {
+      isValidAddress(value) {
+        if (!value || typeof value !== 'object') {
+          throw new Error('Shipping address is required');
+        }
+        const required = ['name', 'phone', 'street', 'city', 'state', 'pincode'];
+        for (const field of required) {
+          if (!value[field]) {
+            throw new Error(`${field} is required in shipping address`);
+          }
+        }
+      }
     }
   },
   paymentMethod: {
-    type: String,
-    enum: ['COD', 'Online', 'UPI'],
-    default: 'COD'
+    type: DataTypes.ENUM('COD', 'Online', 'UPI'),
+    defaultValue: 'COD'
   },
   paymentStatus: {
-    type: String,
-    enum: ['Pending', 'Paid', 'Failed', 'Refunded'],
-    default: 'Pending'
+    type: DataTypes.ENUM('Pending', 'Paid', 'Failed', 'Refunded'),
+    defaultValue: 'Pending'
   },
   orderStatus: {
-    type: String,
-    enum: ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
-    default: 'Pending'
+    type: DataTypes.ENUM('Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'),
+    defaultValue: 'Pending'
   },
   subtotal: {
-    type: Number,
-    required: true
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    validate: {
+      min: { args: 0, msg: 'Subtotal must be positive' }
+    }
   },
   shippingFee: {
-    type: Number,
-    default: 0
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    validate: {
+      min: { args: 0, msg: 'Shipping fee cannot be negative' }
+    }
   },
   tax: {
-    type: Number,
-    default: 0
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0,
+    validate: {
+      min: { args: 0, msg: 'Tax cannot be negative' }
+    }
   },
   total: {
-    type: Number,
-    required: true
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    validate: {
+      min: { args: 0, msg: 'Total must be positive' }
+    }
   },
-  notes: String,
-  trackingNumber: String,
-  estimatedDelivery: Date,
-  deliveredAt: Date,
-  cancelledAt: Date,
-  cancellationReason: String
-}, {
-  timestamps: true
-});
-
-// Generate order number before saving
-orderSchema.pre('save', async function(next) {
-  if (!this.orderNumber) {
-    const count = await mongoose.model('Order').countDocuments();
-    this.orderNumber = `GF${Date.now()}${(count + 1).toString().padStart(4, '0')}`;
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  trackingNumber: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  estimatedDelivery: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  deliveredAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  cancelledAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  cancellationReason: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
-  next();
+}, {
+  tableName: 'orders',
+  timestamps: true,
+  indexes: [
+    { fields: ['userId'] },
+    { fields: ['orderNumber'] },
+    { fields: ['orderStatus'] },
+    { fields: ['paymentStatus'] }
+  ],
+  hooks: {
+    beforeCreate: async (order) => {
+      if (!order.orderNumber) {
+        const count = await Order.count();
+        order.orderNumber = `GF${Date.now()}${(count + 1).toString().padStart(4, '0')}`;
+      }
+    }
+  }
 });
 
-module.exports = mongoose.model('Order', orderSchema);
+module.exports = Order;

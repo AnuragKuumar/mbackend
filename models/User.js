@@ -1,132 +1,115 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const { sequelize } = require('../config/database');
 
-const userSchema = new mongoose.Schema({
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
   name: {
-    type: String,
-    required: [true, 'Name is required'],
-    trim: true,
-    maxlength: [50, 'Name cannot exceed 50 characters'],
+    type: DataTypes.STRING(50),
+    allowNull: false,
     validate: {
-      validator: function(v) {
-        return /^[a-zA-Z\s]+$/.test(v);
-      },
-      message: 'Name can only contain letters and spaces'
+      notEmpty: { msg: 'Name is required' },
+      len: { args: [1, 50], msg: 'Name cannot exceed 50 characters' },
+      is: { args: /^[a-zA-Z\s]+$/, msg: 'Name can only contain letters and spaces' }
     }
   },
   email: {
-    type: String,
-    required: [true, 'Email is required'],
+    type: DataTypes.STRING,
+    allowNull: false,
     unique: true,
-    lowercase: true,
-    trim: true,
     validate: {
-      validator: function(v) {
-        return /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(v);
-      },
-      message: 'Please enter a valid email address'
+      isEmail: { msg: 'Please enter a valid email address' },
+      notEmpty: { msg: 'Email is required' }
+    },
+    set(value) {
+      this.setDataValue('email', value.toLowerCase().trim());
     }
   },
   phone: {
-    type: String,
-    required: [true, 'Phone number is required'],
-    trim: true,
+    type: DataTypes.STRING(15),
+    allowNull: false,
     validate: {
-      validator: function(v) {
-        return /^[6-9]\d{9}$/.test(v.replace(/\D/g, ''));
-      },
-      message: 'Please enter a valid 10-digit phone number'
+      notEmpty: { msg: 'Phone number is required' },
+      is: { args: /^[6-9]\d{9}$/, msg: 'Please enter a valid 10-digit phone number' }
     }
   },
   password: {
-    type: String,
-    required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters'],
+    type: DataTypes.STRING,
+    allowNull: false,
     validate: {
-      validator: function(v) {
-        // Password must contain at least one letter and one number
-        return /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{6,}$/.test(v);
-      },
-      message: 'Password must contain at least one letter and one number'
+      len: { args: [6, 255], msg: 'Password must be at least 6 characters' },
+      is: { args: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{6,}$/, msg: 'Password must contain at least one letter and one number' }
     }
   },
   address: {
-    street: {
-      type: String,
-      maxlength: [100, 'Street address cannot exceed 100 characters']
-    },
-    city: {
-      type: String,
-      maxlength: [50, 'City name cannot exceed 50 characters']
-    },
-    state: {
-      type: String,
-      maxlength: [50, 'State name cannot exceed 50 characters']
-    },
-    pincode: {
-      type: String,
-      validate: {
-        validator: function(v) {
-          return !v || /^\d{6}$/.test(v);
-        },
-        message: 'Pincode must be 6 digits'
+    type: DataTypes.JSONB,
+    defaultValue: {},
+    validate: {
+      isValidAddress(value) {
+        if (value && typeof value === 'object') {
+          const { street, city, state, pincode } = value;
+          if (street && street.length > 100) throw new Error('Street address cannot exceed 100 characters');
+          if (city && city.length > 50) throw new Error('City name cannot exceed 50 characters');
+          if (state && state.length > 50) throw new Error('State name cannot exceed 50 characters');
+          if (pincode && !/^\d{6}$/.test(pincode)) throw new Error('Pincode must be 6 digits');
+        }
       }
     }
   },
   role: {
-    type: String,
-    enum: ['user', 'admin'],
-    default: 'user'
+    type: DataTypes.ENUM('user', 'admin'),
+    defaultValue: 'user'
   },
   isActive: {
-    type: Boolean,
-    default: true
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   },
   loginAttempts: {
-    type: Number,
-    default: 0
+    type: DataTypes.INTEGER,
+    defaultValue: 0
   },
-  lockUntil: Date,
-  lastLogin: Date,
+  lockUntil: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  lastLogin: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
   emailVerified: {
-    type: Boolean,
-    default: false
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   },
   phoneVerified: {
-    type: Boolean,
-    default: false
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   }
 }, {
-  timestamps: true
-});
-
-// Indexes for performance and security
-userSchema.index({ email: 1 });
-userSchema.index({ phone: 1 });
-userSchema.index({ isActive: 1 });
-
-// Virtual for account lock status
-userSchema.virtual('isLocked').get(function() {
-  return !!(this.lockUntil && this.lockUntil > Date.now());
-});
-
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
-  try {
-    const salt = await bcrypt.genSalt(12); // Increased salt rounds for better security
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
+  tableName: 'users',
+  timestamps: true,
+  indexes: [
+    { fields: ['email'] },
+    { fields: ['phone'] },
+    { fields: ['isActive'] }
+  ],
+  hooks: {
+    beforeSave: async (user) => {
+      if (user.changed('password')) {
+        const salt = await bcrypt.genSalt(12);
+        user.password = await bcrypt.hash(user.password, salt);
+      }
+    }
   }
 });
 
-// Compare password method with account locking
-userSchema.methods.comparePassword = async function(candidatePassword) {
+// Instance methods
+User.prototype.comparePassword = async function(candidatePassword) {
   // Check if account is locked
-  if (this.isLocked) {
+  if (this.lockUntil && this.lockUntil > new Date()) {
     throw new Error('Account is temporarily locked due to too many failed login attempts');
   }
 
@@ -138,7 +121,7 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
     
     // Lock account after 5 failed attempts for 30 minutes
     if (this.loginAttempts >= 5) {
-      this.lockUntil = Date.now() + 30 * 60 * 1000; // 30 minutes
+      this.lockUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
     }
     
     await this.save();
@@ -148,7 +131,7 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   // Reset login attempts on successful login
   if (this.loginAttempts > 0) {
     this.loginAttempts = 0;
-    this.lockUntil = undefined;
+    this.lockUntil = null;
   }
   
   this.lastLogin = new Date();
@@ -157,26 +140,28 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return true;
 };
 
-// Method to unlock account (for admin use)
-userSchema.methods.unlockAccount = function() {
+User.prototype.unlockAccount = function() {
   this.loginAttempts = 0;
-  this.lockUntil = undefined;
+  this.lockUntil = null;
   return this.save();
 };
 
-// Method to deactivate account
-userSchema.methods.deactivate = function() {
+User.prototype.deactivate = function() {
   this.isActive = false;
   return this.save();
 };
 
-// Method to sanitize user data for API responses
-userSchema.methods.toSafeObject = function() {
-  const userObject = this.toObject();
+User.prototype.toSafeObject = function() {
+  const userObject = this.toJSON();
   delete userObject.password;
   delete userObject.loginAttempts;
   delete userObject.lockUntil;
   return userObject;
 };
 
-module.exports = mongoose.model('User', userSchema);
+// Virtual for account lock status
+User.prototype.isLocked = function() {
+  return !!(this.lockUntil && this.lockUntil > new Date());
+};
+
+module.exports = User;
