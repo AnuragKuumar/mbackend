@@ -46,6 +46,58 @@ app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api', require('./routes/adminLogin'));
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Backend is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Admin initialization endpoint (for production setup)
+app.post('/api/init-admin', async (req, res) => {
+  try {
+    const Admin = require('./models/Admin');
+    
+    // Check if admin already exists
+    const existingAdmin = await Admin.findOne({ email: process.env.ADMIN_EMAIL });
+    if (existingAdmin) {
+      return res.json({ 
+        success: true, 
+        message: 'Admin already exists',
+        email: existingAdmin.email 
+      });
+    }
+
+    // Create admin user
+    const admin = new Admin({
+      name: 'Admin User',
+      email: process.env.ADMIN_EMAIL || 'support@mobilerpairdurgapur.in',
+      phone: process.env.ADMIN_PHONE || '7407926912',
+      password: process.env.ADMIN_PASSWORD || 'Raigafre@34578',
+      role: 'admin'
+    });
+
+    await admin.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Admin user created successfully',
+      email: admin.email 
+    });
+  } catch (error) {
+    console.error('[ADMIN INIT ERROR]', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error creating admin user',
+      error: error.message 
+    });
+  }
+});
+
 // app.use('/api', require('./routes/initAdmin')); // REMOVED FOR SECURITY
 
 // MongoDB Connection
