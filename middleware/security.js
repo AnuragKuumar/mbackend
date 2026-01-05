@@ -4,6 +4,8 @@ const xss = require('xss-clean');
 const hpp = require('hpp');
 const cors = require('cors');
 
+// PostgreSQL compatible security middleware - no MongoDB sanitization needed
+
 // Rate limiting configurations
 const createRateLimit = (windowMs, max, message) => {
   return rateLimit({
