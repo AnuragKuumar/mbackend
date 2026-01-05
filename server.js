@@ -58,6 +58,34 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Database connection test endpoint
+app.get('/api/test-db', async (req, res) => {
+  try {
+    // Test database connection
+    await sequelize.authenticate();
+    
+    // Get database info
+    const [results] = await sequelize.query('SELECT version() as version, current_database() as database, current_user as user');
+    
+    res.json({
+      success: true,
+      message: 'Database connection successful',
+      database: 'PostgreSQL (Supabase)',
+      connection: 'Active',
+      info: results[0],
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Database test error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Database connection failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Admin initialization endpoint
 app.post('/api/init-admin', async (req, res) => {
   try {
