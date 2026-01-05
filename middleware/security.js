@@ -1,6 +1,5 @@
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
-const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const hpp = require('hpp');
 const cors = require('cors');
@@ -118,15 +117,12 @@ const corsOptions = {
 
 // Input sanitization middleware
 const sanitizeInput = (req, res, next) => {
-  // Remove any keys that start with '$' or contain '.'
-  mongoSanitize()(req, res, () => {
-    // Clean user input from malicious HTML
-    xss()(req, res, () => {
-      // Prevent HTTP Parameter Pollution
-      hpp({
-        whitelist: ['category', 'brand', 'sort', 'page', 'limit'] // Allow these params to be arrays
-      })(req, res, next);
-    });
+  // Clean user input from malicious HTML
+  xss()(req, res, () => {
+    // Prevent HTTP Parameter Pollution
+    hpp({
+      whitelist: ['category', 'brand', 'sort', 'page', 'limit'] // Allow these params to be arrays
+    })(req, res, next);
   });
 };
 
