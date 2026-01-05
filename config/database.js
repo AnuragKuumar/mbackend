@@ -1,6 +1,13 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
+// Validate DATABASE_URL
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL environment variable is not set!');
+  console.error('Please add DATABASE_URL to your environment variables in Render dashboard');
+  process.exit(1);
+}
+
 // Create Sequelize instance for Railway PostgreSQL
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: 'postgres',
