@@ -1,7 +1,7 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const { sequelize, testConnection } = require('./config/database');
 const {
   rateLimits,
   securityHeaders,
@@ -24,7 +24,7 @@ app.use(cors(corsOptions));
 
 // Rate limiting
 app.use('/api/auth', rateLimits.auth);
-app.use('/api/admin', rateLimits.admin); // Special lenient rate limit for admin
+app.use('/api/admin', rateLimits.admin);
 app.use('/api/repairs', rateLimits.creation);
 app.use('/api/orders', rateLimits.creation);
 app.use('/api/products', rateLimits.browsing);
@@ -53,17 +53,24 @@ app.get('/api/health', (req, res) => {
     status: 'OK', 
     message: 'Backend is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    database: 'PostgreSQL (Supabase)'
   });
 });
 
-// Admin initialization endpoint (for production setup)
+// Admin initialization endpoint
 app.post('/api/init-admin', async (req, res) => {
   try {
     const Admin = require('./models/Admin');
     
+    // Sync database tables
+    await sequelize.sync();
+    
     // Check if admin already exists
-    const existingAdmin = await Admin.findOne({ email: process.env.ADMIN_EMAIL });
+    const existingAdmin = await Admin.findOne({ 
+      where: { email: process.env.ADMIN_EMAIL } 
+    });
+    
     if (existingAdmin) {
       return res.json({ 
         success: true, 
@@ -73,15 +80,13 @@ app.post('/api/init-admin', async (req, res) => {
     }
 
     // Create admin user
-    const admin = new Admin({
+    const admin = await Admin.create({
       name: 'Admin User',
       email: process.env.ADMIN_EMAIL || 'support@mobilerpairdurgapur.in',
       phone: process.env.ADMIN_PHONE || '7407926912',
       password: process.env.ADMIN_PASSWORD || 'Raigafre@34578',
       role: 'admin'
     });
-
-    await admin.save();
 
     res.json({ 
       success: true, 
@@ -98,19 +103,13 @@ app.post('/api/init-admin', async (req, res) => {
   }
 });
 
-// app.use('/api', require('./routes/initAdmin')); // REMOVED FOR SECURITY
-
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/mobirepair')
-  .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.log('MongoDB connection error:', err));
-
 // Basic route
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Mobi repair API Server Running',
-    version: '1.0.0',
-    status: 'secure'
+    version: '2.0.0',
+    status: 'secure',
+    database: 'PostgreSQL'
   });
 });
 
@@ -126,7 +125,6 @@ app.use('*', (req, res) => {
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
   
-  // Don't leak error details in production
   const isDevelopment = process.env.NODE_ENV === 'development';
   
   res.status(err.status || 500).json({
@@ -135,13 +133,32 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log('Security features enabled:');
-  console.log('- Rate limiting ✓');
-  console.log('- Input sanitization ✓');
-  console.log('- Security headers ✓');
-  console.log('- CORS protection ✓');
-  console.log('- Request validation ✓');
-});
+// PostgreSQL Connection and Server Start
+const startServer = async () => {
+  try {
+    // Test database connection
+    await testConnection();
+    
+    // Sync database models
+    await sequelize.sync({ alter: true });
+    console.log('✅ Database synchronized');
+    
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🗄️  Database: PostgreSQL (Supabase)`);
+      console.log('Security features enabled:');
+      console.log('- Rate limiting ✓');
+      console.log('- Input sanitization ✓');
+      console.log('- Security headers ✓');
+      console.log('- CORS protection ✓');
+      console.log('- Request validation ✓');
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();

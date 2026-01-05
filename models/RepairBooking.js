@@ -1,83 +1,102 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const repairBookingSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: false // Allow guest bookings
+const RepairBooking = sequelize.define('RepairBooking', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: true, // Allow guest bookings
+    references: {
+      model: 'users',
+      key: 'id'
+    }
   },
   deviceBrand: {
-    type: String,
-    required: [true, 'Device brand is required']
+    type: DataTypes.STRING,
+    allowNull: false
   },
   deviceModel: {
-    type: String,
-    required: false
+    type: DataTypes.STRING,
+    allowNull: true
   },
   serviceType: {
-    type: String,
-    required: [true, 'Service type is required']
+    type: DataTypes.STRING,
+    allowNull: false
   },
   deliveryOption: {
-    type: String,
-    default: 'doorstep-service'
+    type: DataTypes.STRING,
+    defaultValue: 'doorstep-service'
   },
-  customerDetails: {
-    name: {
-      type: String,
-      required: true
-    },
-    phone: {
-      type: String,
-      required: true
-    },
-    email: {
-      type: String,
-      required: true
-    },
-    address: String
+  customerName: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  customerPhone: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  customerEmail: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      isEmail: true
+    }
+  },
+  customerAddress: {
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   issueDescription: {
-    type: String,
-    required: [true, 'Issue description is required']
+    type: DataTypes.TEXT,
+    allowNull: false
   },
   estimatedCost: {
-    type: Number,
-    default: 0
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0
   },
   serviceFee: {
-    type: Number,
-    default: 0
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0
   },
   totalCost: {
-    type: Number,
-    default: 0
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0
   },
   status: {
-    type: String,
-    enum: ['pending', 'accepted', 'in-progress', 'completed', 'cancelled'],
-    default: 'pending'
+    type: DataTypes.ENUM('pending', 'accepted', 'in-progress', 'completed', 'cancelled'),
+    defaultValue: 'pending'
   },
   bookingDate: {
-    type: Date,
-    default: Date.now
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW
   },
   preferredDate: {
-    type: String,
-    required: false
+    type: DataTypes.STRING,
+    allowNull: true
   },
   preferredTime: {
-    type: String,
-    required: false
+    type: DataTypes.STRING,
+    allowNull: true
   },
-  notes: String,
-  adminNotes: String,
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  adminNotes: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
   isGuestBooking: {
-    type: Boolean,
-    default: false
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   }
 }, {
+  tableName: 'repair_bookings',
   timestamps: true
 });
 
-module.exports = mongoose.model('RepairBooking', repairBookingSchema);
+module.exports = RepairBooking;
