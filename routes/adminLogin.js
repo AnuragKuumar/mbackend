@@ -4,9 +4,6 @@ const Admin = require('../models/Admin');
 
 const router = express.Router();
 
-// @route   POST /api/admin/login
-// @desc    Admin login
-// @access  Public
 router.post('/admin/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -16,7 +13,7 @@ router.post('/admin/login', async (req, res) => {
     }
 
     // Find admin by email
-    const admin = await Admin.findOne({ email });
+    const admin = await Admin.findOne({ where: { email } });
     if (!admin) {
       return res.status(401).json({ message: 'Invalid login credentials' });
     }
@@ -29,7 +26,7 @@ router.post('/admin/login', async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: admin._id, role: admin.role },
+      { id: admin.id, role: admin.role },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '1d' }
     );
@@ -38,7 +35,7 @@ router.post('/admin/login', async (req, res) => {
       success: true,
       token,
       admin: {
-        id: admin._id,
+        id: admin.id,
         name: admin.name,
         email: admin.email,
         role: admin.role

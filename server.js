@@ -54,7 +54,7 @@ app.get('/api/health', (req, res) => {
     message: 'Backend is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    database: 'PostgreSQL (Supabase)'
+    database: 'Railway PostgreSQL'
   });
 });
 
@@ -70,7 +70,7 @@ app.get('/api/test-db', async (req, res) => {
     res.json({
       success: true,
       message: 'Database connection successful',
-      database: 'PostgreSQL (Supabase)',
+      database: 'Railway PostgreSQL',
       connection: 'Active',
       info: results[0],
       timestamp: new Date().toISOString()
@@ -137,7 +137,7 @@ app.get('/', (req, res) => {
     message: 'Mobi repair API Server Running',
     version: '2.0.0',
     status: 'secure',
-    database: 'PostgreSQL'
+    database: 'Railway PostgreSQL'
   });
 });
 
@@ -161,7 +161,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// PostgreSQL Connection and Server Start
+// Railway PostgreSQL Connection and Server Start
 const startServer = async () => {
   try {
     // Test database connection
@@ -175,7 +175,7 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🗄️  Database: PostgreSQL (Supabase)`);
+      console.log(`🗄️  Database: Railway PostgreSQL`);
       console.log('Security features enabled:');
       console.log('- Rate limiting ✓');
       console.log('- Input sanitization ✓');

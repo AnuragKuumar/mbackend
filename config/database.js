@@ -1,8 +1,8 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
-// Create Sequelize instance
-const sequelize = new Sequelize(process.env.DATABASE_URL || process.env.POSTGRES_URL, {
+// Create Sequelize instance for Railway PostgreSQL
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: 'postgres',
   protocol: 'postgres',
   dialectOptions: {
@@ -24,9 +24,9 @@ const sequelize = new Sequelize(process.env.DATABASE_URL || process.env.POSTGRES
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ PostgreSQL connection established successfully');
+    console.log('✅ Railway PostgreSQL connection established successfully');
   } catch (error) {
-    console.error('❌ Unable to connect to PostgreSQL:', error.message);
+    console.error('❌ Unable to connect to Railway PostgreSQL:', error.message);
   }
 };
 
