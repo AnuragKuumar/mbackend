@@ -3,12 +3,12 @@ const { sequelize } = require('../config/database');
 
 const RepairBooking = sequelize.define('RepairBooking', {
   id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
   },
   userId: {
-    type: DataTypes.UUID,
+    type: DataTypes.INTEGER,
     allowNull: true, // Allow guest bookings
     references: {
       model: 'users',
@@ -96,7 +96,13 @@ const RepairBooking = sequelize.define('RepairBooking', {
   }
 }, {
   tableName: 'repair_bookings',
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { fields: ['userId'] },
+    { fields: ['status'] },
+    { fields: ['customerPhone'] },
+    { fields: ['bookingDate'] }
+  ]
 });
 
 module.exports = RepairBooking;
