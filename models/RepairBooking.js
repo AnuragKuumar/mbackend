@@ -41,9 +41,20 @@ const RepairBooking = sequelize.define('RepairBooking', {
   },
   customerEmail: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true, // Allow null for optional email
     validate: {
-      isEmail: true
+      isEmail: {
+        msg: 'Please enter a valid email address'
+      },
+      customValidator(value) {
+        // Only validate email format if value is provided
+        if (value !== null && value !== undefined && value !== '') {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(value)) {
+            throw new Error('Please enter a valid email address');
+          }
+        }
+      }
     }
   },
   customerAddress: {

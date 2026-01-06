@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
+const { Op } = require('sequelize');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
 
@@ -8,7 +9,7 @@ const router = express.Router();
 
 // Generate JWT Token
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+  return jwt.sign({ user: { id } }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRE || '30d'
   });
 };
@@ -30,35 +31,36 @@ router.post('/register', [
 
     const { name, email, phone, password } = req.body;
 
-    // Check if user exists
+    // Check if user exists using Sequelize
     const existingUser = await User.findOne({ 
-      $or: [{ email }, { phone }] 
+      where: {
+        [Op.or]: [{ email }, { phone }]
+      }
     });
 
     if (existingUser) {
       return res.status(400).json({ 
+        success: false,
         message: 'User already exists with this email or phone number' 
       });
     }
 
-    // Create user
-    const user = new User({
+    // Create user using Sequelize
+    const user = await User.create({
       name,
       email,
       phone,
       password
     });
 
-    await user.save();
-
     // Generate token
-    const token = generateToken(user._id);
+    const token = generateToken(user.id);
 
     res.status(201).json({
       success: true,
       token,
       user: {
-        id: user._id,
+        id: user.id,
         name: user.name,
         email: user.email,
         phone: user.phone,
@@ -66,8 +68,12 @@ router.post('/register', [
       }
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Register error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error',
+      error: error.message 
+    });
   }
 });
 
@@ -86,26 +92,32 @@ router.post('/login', [
 
     const { email, password } = req.body;
 
-    // Check if user exists
-    const user = await User.findOne({ email });
+    // Check if user exists using Sequelize
+    const user = await User.findOne({ where: { email } });
     if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid credentials' 
+      });
     }
 
     // Check password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid credentials' 
+      });
     }
 
     // Generate token
-    const token = generateToken(user._id);
+    const token = generateToken(user.id);
 
     res.json({
       success: true,
       token,
       user: {
-        id: user._id,
+        id: user.id,
         name: user.name,
         email: user.email,
         phone: user.phone,
@@ -113,8 +125,12 @@ router.post('/login', [
       }
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Login error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error',
+      error: error.message 
+    });
   }
 });
 
@@ -126,7 +142,7 @@ router.get('/me', auth, async (req, res) => {
     res.json({
       success: true,
       user: {
-        id: req.user._id,
+        id: req.user.id,
         name: req.user.name,
         email: req.user.email,
         phone: req.user.phone,
@@ -135,8 +151,12 @@ router.get('/me', auth, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Get user error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error',
+      error: error.message 
+    });
   }
 });
 

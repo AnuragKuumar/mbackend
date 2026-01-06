@@ -32,13 +32,15 @@ router.post('/', [
   body('serviceType').notEmpty().withMessage('Service type is required'),
   body('customerDetails.name').notEmpty().withMessage('Customer name is required'),
   body('customerDetails.phone').notEmpty().withMessage('Phone number is required'),
-  body('customerDetails.email').isEmail().withMessage('Valid email is required'),
   body('issueDescription').notEmpty().withMessage('Issue description is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ 
+        success: false,
+        errors: errors.array() 
+      });
     }
 
     const {
@@ -65,26 +67,29 @@ router.post('/', [
       deviceModel: deviceModel || 'Not specified',
       serviceType,
       deliveryOption: deliveryOption || 'doorstep-service',
-      customerDetails,
+      customerName: customerDetails.name,
+      customerPhone: customerDetails.phone,
+      customerEmail: customerDetails.email || null, // Allow null for optional email
+      customerAddress: customerDetails.address || null,
       issueDescription,
       preferredDate,
       preferredTime,
       serviceFee,
       totalCost: serviceFee,
       notes,
-      isGuestBooking: isGuestBooking || false
+      isGuestBooking: isGuestBooking !== false // Default to true for guest bookings
     };
 
     // Add user reference if authenticated
     if (req.user) {
-      bookingData.user = req.user._id;
+      bookingData.userId = req.user.id;
       bookingData.isGuestBooking = false;
-    } else {
-      bookingData.isGuestBooking = true;
     }
 
-    const booking = new RepairBooking(bookingData);
-    await booking.save();
+    console.log('Creating booking with data:', JSON.stringify(bookingData, null, 2));
+
+    // Create booking using Sequelize
+    const booking = await RepairBooking.create(bookingData);
 
     res.status(201).json({
       success: true,
@@ -92,8 +97,13 @@ router.post('/', [
       booking
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Repair booking error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
@@ -102,16 +112,22 @@ router.post('/', [
 // @access  Private
 router.get('/my-bookings', auth, async (req, res) => {
   try {
-    const bookings = await RepairBooking.find({ user: req.user._id })
-      .sort({ createdAt: -1 });
+    const bookings = await RepairBooking.findAll({
+      where: { userId: req.user.id },
+      order: [['createdAt', 'DESC']]
+    });
 
     res.json({
       success: true,
       bookings
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Get bookings error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error',
+      error: error.message 
+    });
   }
 });
 
@@ -121,12 +137,17 @@ router.get('/my-bookings', auth, async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   try {
     const booking = await RepairBooking.findOne({
-      _id: req.params.id,
-      user: req.user._id
+      where: { 
+        id: req.params.id,
+        userId: req.user.id 
+      }
     });
 
     if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Booking not found' 
+      });
     }
 
     res.json({
@@ -134,8 +155,12 @@ router.get('/:id', auth, async (req, res) => {
       booking
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Get booking error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error',
+      error: error.message 
+    });
   }
 });
 
@@ -145,22 +170,27 @@ router.get('/:id', auth, async (req, res) => {
 router.put('/:id/cancel', auth, async (req, res) => {
   try {
     const booking = await RepairBooking.findOne({
-      _id: req.params.id,
-      user: req.user._id
+      where: { 
+        id: req.params.id,
+        userId: req.user.id 
+      }
     });
 
     if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Booking not found' 
+      });
     }
 
-    if (booking.status === 'Completed' || booking.status === 'Cancelled') {
+    if (booking.status === 'completed' || booking.status === 'cancelled') {
       return res.status(400).json({ 
+        success: false,
         message: 'Cannot cancel this booking' 
       });
     }
 
-    booking.status = 'Cancelled';
-    await booking.save();
+    await booking.update({ status: 'cancelled' });
 
     res.json({
       success: true,
@@ -168,8 +198,12 @@ router.put('/:id/cancel', auth, async (req, res) => {
       booking
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Cancel booking error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error',
+      error: error.message 
+    });
   }
 });
 
