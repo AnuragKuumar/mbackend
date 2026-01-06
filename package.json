@@ -1,7 +1,7 @@
 {
   "name": "mobirepair-backend",
   "version": "1.0.0",
-  "description": "Mobi repair Backend API",
+  "description": "Mobile repair Backend API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

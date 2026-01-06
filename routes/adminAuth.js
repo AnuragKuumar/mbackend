@@ -220,8 +220,8 @@ router.post('/setup-2fa', async (req, res) => {
 
     // Generate secret
     const secret = speakeasy.generateSecret({
-      name: `Mobi Repair Admin (${admin.email})`,
-      issuer: 'Mobi Repair'
+      name: `Mobile Repair Admin (${admin.email})`,
+      issuer: 'Mobile Repair'
     });
 
     // Generate QR code

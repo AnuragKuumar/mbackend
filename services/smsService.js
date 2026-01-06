@@ -63,7 +63,7 @@ class SMSService {
   }
 
   // Predefined message templates
-  getStatusMessage(customerName, deviceModel, status, businessName = 'Mobi Repair') {
+  getStatusMessage(customerName, deviceModel, status, businessName = 'Mobile Repair') {
     const messages = {
       'accepted': `Hi ${customerName}, your ${deviceModel} repair request has been accepted by ${businessName}. We'll start working on it soon. Track: ${businessName}`,
       
@@ -90,7 +90,7 @@ class SMSService {
 
   // Send custom message
   async sendCustomMessage(phoneNumber, customerName, message) {
-    const personalizedMessage = `Hi ${customerName}, ${message} - Mobi Repair (7407926912)`;
+    const personalizedMessage = `Hi ${customerName}, ${message} - Mobile Repair (7407926912)`;
     return await this.sendSMS(phoneNumber, personalizedMessage);
   }
 }

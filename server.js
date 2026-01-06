@@ -134,7 +134,7 @@ app.post('/api/init-admin', async (req, res) => {
 // Basic route
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'Mobi repair API Server Running',
+    message: 'Mobile repair API Server Running',
     version: '2.0.0',
     status: 'secure',
     database: 'Railway PostgreSQL'
