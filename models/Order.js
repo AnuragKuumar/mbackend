@@ -134,4 +134,12 @@ const Order = sequelize.define('Order', {
   }
 });
 
+// Define associations
+Order.associate = (models) => {
+  Order.belongsTo(models.User, {
+    foreignKey: 'userId',
+    as: 'user'
+  });
+};
+
 module.exports = Order;

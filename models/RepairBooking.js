@@ -116,4 +116,12 @@ const RepairBooking = sequelize.define('RepairBooking', {
   ]
 });
 
+// Define associations
+RepairBooking.associate = (models) => {
+  RepairBooking.belongsTo(models.User, {
+    foreignKey: 'userId',
+    as: 'user'
+  });
+};
+
 module.exports = RepairBooking;

@@ -164,4 +164,16 @@ User.prototype.isLocked = function() {
   return !!(this.lockUntil && this.lockUntil > new Date());
 };
 
+// Define associations
+User.associate = (models) => {
+  User.hasMany(models.RepairBooking, {
+    foreignKey: 'userId',
+    as: 'repairBookings'
+  });
+  User.hasMany(models.Order, {
+    foreignKey: 'userId',
+    as: 'orders'
+  });
+};
+
 module.exports = User;

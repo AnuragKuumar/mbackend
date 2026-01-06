@@ -1,5 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const { Op } = require('sequelize');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const RepairBooking = require('../models/RepairBooking');
@@ -14,25 +15,34 @@ const router = express.Router();
 // @access  Private (Admin only)
 router.get('/dashboard', adminAuth, async (req, res) => {
   try {
-    const totalUsers = await User.countDocuments({ role: 'user' });
-    const totalOrders = await Order.countDocuments();
-    const totalBookings = await RepairBooking.countDocuments();
-    const totalProducts = await Product.countDocuments();
+    // Use Sequelize count methods
+    const totalUsers = await User.count({ where: { role: 'user' } });
+    const totalOrders = await Order.count();
+    const totalBookings = await RepairBooking.count();
+    const totalProducts = await Product.count();
 
-    // Get status-wise booking counts
-    const bookingStats = await RepairBooking.aggregate([
-      { $group: { _id: '$status', count: { $sum: 1 } } }
-    ]);
+    // Get recent orders (simplified for now)
+    const recentOrders = await Order.findAll({
+      limit: 5,
+      order: [['createdAt', 'DESC']],
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['name', 'email']
+      }]
+    });
 
-    const recentOrders = await Order.find()
-      .populate('user', 'name email')
-      .sort({ createdAt: -1 })
-      .limit(5);
-
-    const recentBookings = await RepairBooking.find()
-      .populate('user', 'name email')
-      .sort({ createdAt: -1 })
-      .limit(10);
+    // Get recent bookings
+    const recentBookings = await RepairBooking.findAll({
+      limit: 10,
+      order: [['createdAt', 'DESC']],
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['name', 'email'],
+        required: false // LEFT JOIN for guest bookings
+      }]
+    });
 
     res.json({
       success: true,
@@ -40,15 +50,18 @@ router.get('/dashboard', adminAuth, async (req, res) => {
         totalUsers,
         totalOrders,
         totalBookings,
-        totalProducts,
-        bookingStats
+        totalProducts
       },
       recentOrders,
       recentBookings
     });
   } catch (error) {
     console.error('[ADMIN DASHBOARD ERROR]', error);
-    res.status(500).json({ message: 'Server error loading dashboard' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error loading dashboard',
+      error: error.message 
+    });
   }
 });
 
@@ -59,29 +72,40 @@ router.get('/bookings', adminAuth, async (req, res) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
     
-    const filter = {};
-    if (status) filter.status = status;
+    const where = {};
+    if (status) where.status = status;
 
-    const bookings = await RepairBooking.find(filter)
-      .populate('user', 'name email phone')
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+    const offset = (page - 1) * limit;
 
-    const total = await RepairBooking.countDocuments(filter);
+    const { count, rows: bookings } = await RepairBooking.findAndCountAll({
+      where,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [['createdAt', 'DESC']],
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['name', 'email', 'phone'],
+        required: false // LEFT JOIN for guest bookings
+      }]
+    });
 
     res.json({
       success: true,
       bookings,
       pagination: {
-        current: page,
-        pages: Math.ceil(total / limit),
-        total
+        current: parseInt(page),
+        pages: Math.ceil(count / limit),
+        total: count
       }
     });
   } catch (error) {
     console.error('[ADMIN BOOKINGS ERROR]', error);
-    res.status(500).json({ message: 'Server error loading bookings' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error loading bookings',
+      error: error.message 
+    });
   }
 });
 
@@ -92,36 +116,44 @@ router.put('/bookings/:id', adminAuth, async (req, res) => {
   try {
     const { status, estimatedCost, adminNotes } = req.body;
 
-    const booking = await RepairBooking.findById(req.params.id);
+    const booking = await RepairBooking.findByPk(req.params.id);
     if (!booking) {
-      return res.status(404).json({ message: 'Booking not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Booking not found' 
+      });
     }
 
     const oldStatus = booking.status;
     
-    if (status) booking.status = status;
+    // Update booking fields
+    const updateData = {};
+    if (status) updateData.status = status;
     if (estimatedCost) {
-      booking.estimatedCost = estimatedCost;
-      booking.totalCost = estimatedCost + booking.serviceFee;
+      updateData.estimatedCost = estimatedCost;
+      updateData.totalCost = parseFloat(estimatedCost) + parseFloat(booking.serviceFee || 0);
     }
-    if (adminNotes) booking.adminNotes = adminNotes;
+    if (adminNotes) updateData.adminNotes = adminNotes;
 
-    await booking.save();
+    await booking.update(updateData);
 
     // Send SMS notification if status changed
+    let smsNotification = 'No SMS sent';
     if (status && status !== oldStatus) {
       try {
         const smsResult = await smsService.sendBookingStatusUpdate(booking, status);
         console.log('📱 SMS Notification Result:', smsResult);
         
         if (smsResult.success) {
-          console.log(`✅ SMS sent to ${booking.customerDetails.name} (${booking.customerDetails.phone})`);
+          console.log(`✅ SMS sent to ${booking.customerName} (${booking.customerPhone})`);
+          smsNotification = 'SMS notification sent';
         } else {
-          console.log(`❌ SMS failed for ${booking.customerDetails.name}: ${smsResult.error}`);
+          console.log(`❌ SMS failed for ${booking.customerName}: ${smsResult.error}`);
+          smsNotification = 'SMS failed to send';
         }
       } catch (smsError) {
         console.error('SMS Service Error:', smsError);
-        // Don't fail the booking update if SMS fails
+        smsNotification = 'SMS service error';
       }
     }
 
@@ -129,15 +161,18 @@ router.put('/bookings/:id', adminAuth, async (req, res) => {
       success: true,
       message: 'Booking updated successfully',
       booking,
-      smsNotification: status && status !== oldStatus ? 'SMS notification sent' : 'No SMS sent'
+      smsNotification
     });
   } catch (error) {
     console.error('[ADMIN BOOKING UPDATE ERROR]', error);
-    res.status(500).json({ message: 'Server error updating booking' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error updating booking',
+      error: error.message 
+    });
   }
 });
 
-module.exports = router;
 // @route   POST /api/admin/send-sms
 // @desc    Send custom SMS to customer
 // @access  Private (Admin only)
@@ -150,7 +185,10 @@ router.post('/send-sms', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ 
+        success: false,
+        errors: errors.array() 
+      });
     }
 
     const { phone, customerName, message } = req.body;
@@ -172,6 +210,12 @@ router.post('/send-sms', [
     }
   } catch (error) {
     console.error('[SEND SMS ERROR]', error);
-    res.status(500).json({ message: 'Server error sending SMS' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error sending SMS',
+      error: error.message 
+    });
   }
 });
+
+module.exports = router;

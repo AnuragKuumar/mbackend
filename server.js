@@ -167,6 +167,24 @@ const startServer = async () => {
     // Test database connection
     await testConnection();
     
+    // Initialize model associations
+    const User = require('./models/User');
+    const RepairBooking = require('./models/RepairBooking');
+    const Order = require('./models/Order');
+    const Product = require('./models/Product');
+    
+    // Define associations
+    const models = { User, RepairBooking, Order, Product };
+    
+    // Initialize associations if they exist
+    Object.keys(models).forEach(modelName => {
+      if (models[modelName].associate) {
+        models[modelName].associate(models);
+      }
+    });
+    
+    console.log('✅ Model associations initialized');
+    
     // Sync database models
     await sequelize.sync({ alter: true });
     console.log('✅ Database synchronized');
