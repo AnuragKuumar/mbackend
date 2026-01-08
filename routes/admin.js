@@ -218,4 +218,34 @@ router.post('/send-sms', [
   }
 });
 
+// @route   DELETE /api/admin/bookings/:id
+// @desc    Delete repair booking (admin can delete any booking)
+// @access  Private (Admin only)
+router.delete('/bookings/:id', adminAuth, async (req, res) => {
+  try {
+    const booking = await RepairBooking.findByPk(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Booking not found' 
+      });
+    }
+
+    // Admin can delete any booking regardless of status
+    await booking.destroy();
+
+    res.json({
+      success: true,
+      message: 'Booking deleted successfully'
+    });
+  } catch (error) {
+    console.error('[ADMIN BOOKING DELETE ERROR]', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error deleting booking',
+      error: error.message 
+    });
+  }
+});
+
 module.exports = router;
